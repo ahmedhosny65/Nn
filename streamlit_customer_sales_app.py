@@ -1,49 +1,77 @@
 
+import import zipfile
+import os
+
+# Define project structure
+project_name = "Customer_Sales_App"
+base_path = f"/mnt/data/{project_name}"
+os.makedirs(base_path, exist_ok=True)
+
+# 1. Create app.py
+app_py = """
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-import io
+import matplotlib.pyplot as plt
 
-# Session state for storing data
-if 'customers' not in st.session_state:
-    st.session_state.customers = pd.DataFrame(columns=['Customer ID', 'Name', 'Phone', 'City'])
-if 'sales' not in st.session_state:
-    st.session_state.sales = pd.DataFrame(columns=['Sale ID', 'Customer ID', 'Date', 'Product', 'Amount'])
+st.set_page_config(page_title="Customer Sales Dashboard", layout="wide")
 
-st.title("💼 Customer & Sales Management")
+st.title("📊 تحليل مبيعات العملاء")
 
-# Sidebar for navigation
-page = st.sidebar.radio("Go to", ["Add Customer", "Add Sale", "Dashboard"])
+uploaded_file = st.file_uploader("ارفع ملف CSV يحتوي على بيانات المبيعات", type="csv")
 
-# Add Customer Page
-if page == "Add Customer":
-    st.header("➕ Add New Customer")
-    name = st.text_input("Name")
-    phone = st.text_input("Phone")
-    city = st.text_input("City")
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+    st.subheader("📄 البيانات الأصلية")
+    st.dataframe(df)
 
-    if st.button("Add Customer"):
-        if name and phone and city:
-            new_id = f"C{len(st.session_state.customers) + 1:03}"
-            new_customer = pd.DataFrame([[new_id, name, phone, city]], columns=st.session_state.customers.columns)
-            st.session_state.customers = pd.concat([st.session_state.customers, new_customer], ignore_index=True)
-            st.success("Customer added successfully!")
+    if "Customer" in df.columns and "Sales" in df.columns:
+        grouped = df.groupby("Customer")["Sales"].sum().sort_values(ascending=False)
+        st.subheader("💰 إجمالي المبيعات لكل عميل")
+        st.dataframe(grouped)
 
-    st.subheader("📋 Customer List")
-    st.dataframe(st.session_state.customers)
-
-# Add Sale Page
-elif page == "Add Sale":
-    st.header("🛒 Add New Sale")
-    if len(st.session_state.customers) == 0:
-        st.warning("Please add customers first.")
+        st.subheader("📈 رسم بياني لإجمالي المبيعات حسب العميل")
+        fig, ax = plt.subplots()
+        grouped.plot(kind="bar", ax=ax)
+        st.pyplot(fig)
     else:
-        customer_id = st.selectbox("Select Customer", st.session_state.customers["Customer ID"])
-        product = st.text_input("Product")
-        amount = st.number_input("Amount", min_value=0)
-        date = st.date_input("Date", value=datetime.today())
+        st.warning("⚠️ الملف لا يحتوي على الأعمدة المطلوبة: 'Customer' و 'Sales'")
+else:
+    st.info("👈 الرجاء رفع ملف CSV لبدء التحليل.")
+"""
 
-        if st.button("Add Sale"):
+with open(f"{base_path}/app.py", "w", encoding="utf-8") as f:
+    f.write(app_py)
+
+# 2. Create sample CSV data
+sample_data = """Customer,Sales
+Ahmed,2000
+Mohamed,1500
+Sara,3000
+Ali,1200
+Laila,2500
+"""
+
+os.makedirs(f"{base_path}/data", exist_ok=True)
+with open(f"{base_path}/data/sample_sales.csv", "w", encoding="utf-8") as f:
+    f.write(sample_data)
+
+# 3. Create requirements.txt
+requirements = """streamlit
+pandas
+matplotlib
+"""
+
+with open(f"{base_path}/requirements.txt", "w") as f:
+    f.write(requirements)
+
+# 4. Zip the project
+zip_path = f"/mnt/data/{project_name}.zip"
+with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+    for root, dirs, files in os.walk(base_path):
+        for file in files:
+            file_path = os.path.join(root, file)
+            arcname = os.path.relpath(file_path, base_path)
+            zipf.write(file_path, arcname)
             if product and amount > 0:
                 new_id = f"S{len(st.session_state.sales) + 1:03}"
                 new_sale = pd.DataFrame([[new_id, customer_id, date, product, amount]], columns=st.session_state.sales.columns)
